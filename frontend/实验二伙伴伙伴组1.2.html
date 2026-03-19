@@ -198,7 +198,7 @@
       margin-top: 10px;
       font-weight: 600;
     }
-    .feedback-text {
+    /* .feedback-text {
       margin: 20px 0;
       padding: 15px;
       background: #e8f5e9;
@@ -207,7 +207,7 @@
       color: #27ae60;
       line-height: 1.8;
       display: none;
-    }
+    } */
 
     /* 练习转正式提示弹窗 */
     .practice-alert {
@@ -470,7 +470,7 @@
       },
       {
         roundText: "正式交互第10/13轮",
-        feedback: "极这是分给你的回馈。我们现在的合作氛围真的很棒。"
+        feedback: "这是分给你的回馈。我们现在的合作氛围真的很棒。"
       },
       {
         roundText: "正式交互第11/13轮",
@@ -510,9 +510,10 @@
       interactRecords: [],
       
       // 计时相关
-      interactStartTime: 0, // 每轮交互的开始时间（用于计算反应时）
       lastSliderValue: 50, // 新增：存储上一页滑杆值
     };
+
+    let interactStartTime = 0; // 每轮交互的开始时间（用于计算反应时）
 
     // -------------------------- 元素获取 --------------------------
     // 基础阶段
@@ -535,7 +536,7 @@
     const goldInput = document.getElementById("goldInput");
     const slider = document.getElementById("slider");
     const sliderValue = document.getElementById("sliderValue");
-    const feedbackText = document.getElementById("feedbackText");
+    // const feedbackText = document.getElementById("feedbackText");
     const interactConfirm = document.getElementById("interactConfirm");
     const confirmGold = document.getElementById("confirmGold");
     const nextPage = document.getElementById("nextPage");
@@ -646,7 +647,7 @@
       interactRound.textContent = experimentData.interactStep + 1;
       roundText.textContent = currentConfig.roundText;
 
-      experimentData.interactStartTime = Date.now(); // 重置交互开始时间
+      interactStartTime = Date.now(); // 重置交互开始时间
 
       // 重置界面状态
       goldInput.value = "";
@@ -654,19 +655,14 @@
       slider.value = experimentData.lastSliderValue; // 使用存储的滑杆值
       sliderValue.textContent = experimentData.lastSliderValue;
 
-      feedbackText.style.display = "none";
+      // feedbackText.style.display = "none";
       aiFeedbackBox.style.display = "none"; // 隐藏 AI 回馈框
 
       confirmGold.style.display = "inline-block"; // 显示确认金币按钮
-      confirmGold.disabled = true; // 禁用确认金币按钮
       nextPage.style.display = "none"; // 隐藏翻页按钮
 
-      // 记录本轮开始时间（计算反应时）
-      experimentData.interactStartTime = Date.now();
-
-      // 第二轮结束后显示练习转正式弹窗
+      // 第二轮结束后显示弹窗
       if (experimentData.interactStep === 2) {
-        // 第三轮初始化时先显示弹窗
         practiceAlert.style.display = "block";
         practiceAlertBtn.onclick = () => {
           practiceAlert.style.display = "none";
@@ -688,7 +684,7 @@
     // 确认金币数按钮事件
     confirmGold.addEventListener("click", () => {
       // 计算反应时（以毫秒为单位）
-      const reactionTime = Date.now() - experimentData.interactStartTime;
+      const reactionTime = Date.now() - interactStartTime;
       const inputGold = parseInt(goldInput.value);
       const sliderVal = parseInt(slider.value);
 
@@ -699,6 +695,11 @@
       const rate = 150 + Math.random() * 30;
       const returnGold = Math.round(inputGold * (rate / 100));
       const currentConfig = interactConfig[experimentData.interactStep];
+
+      // 显示翻页按钮
+      nextPage.style.display = "inline-block";
+      confirmGold.style.display = "none"; // 隐藏确认金币按钮
+      nextPage.disabled = true; // 先禁用翻页按钮，等AI反馈显示后再启用
 
       // 显示思考延迟 + 拟人对话框
       setTimeout(() => {
@@ -717,10 +718,8 @@
           if (i >= text.length) clearInterval(interval);
         }, 30); // 逐字速度，越小越快
 
-        // 显示翻页按钮
-        nextPage.style.display = "inline-block";
-        confirmGold.style.display = "none"; // 隐藏确认金币按钮
-      }, 1500);
+        nextPage.disabled = false; // 启用翻页按钮
+      }, 1000);
 
       // 记录本轮数据
       experimentData.interactRecords.push({
@@ -730,16 +729,10 @@
         期望滑杆值: sliderVal,
         反应时_ms: reactionTime,
       });
-
-      // 禁用确认金币按钮
-      confirmGold.disabled = true;
     });
 
     // 翻页按钮事件
     nextPage.addEventListener("click", () => {
-      aiFeedbackBox.style.display = "none"; // 隐藏 AI 回馈框
-      nextPage.style.display = "none"; // 确保翻页按钮隐藏
-      confirmGold.style.display = "inline-block"; // 显示确认金币按钮
       experimentData.interactStep++;
       if (experimentData.interactStep >= interactConfig.length) {
         // 交互完成，跳问卷星阶段
