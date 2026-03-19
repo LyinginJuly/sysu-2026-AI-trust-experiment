@@ -319,7 +319,7 @@
 
   <!-- 复用界面3：交互轮次（15轮） -->
   <div class="interact-container" id="interactStage">
-    <h1 class="title">交互 - 第<span id="interactRound">1</span>轮</h1>
+    <h1 class="title">金币交互 - 第<span id="interactRound">1</span>轮</h1>
     <div class="round-text" id="roundText" style="white-space: pre-line;">
       第一轮交互：请根据提示输入你愿意投入的金币数。
     </div>
@@ -344,7 +344,7 @@
     <!-- 拟人化AI反馈对话框 -->
     <div class="ai-feedback-box" id="aiFeedbackBox">
       <div class="ai-chat">
-        <div class="ai-avatar">AI</div>
+        <div class="ai-avatar"></div>
         <div class="ai-bubble">
           <div class="ai-gold-result" id="goldResultText"></div>
           <div id="aiMessageText"></div>
@@ -380,16 +380,16 @@
     // 1. 基础阶段（开始/指导语/结束）配置
     const baseConfig = [
       {
-        title: "实验开始",
-        content: "欢迎参与实验二！按确认键开始实验。"
+        title: "实验二开始",
+        content: "这是实验二的开始页面。<br>开始实验二前，请确保您已完成实验一，否则请联系实验人员。<br><br>按下确认键后，将开始实验二。"
       },
       {
         title: "实验二指导",
-        content: "在刚才的互动中，你已经对这位交互对象有了一定的了解。也许你会发现实际的表现与你最初的期望不完全一致。在本阶段，屏幕上将出现一个调节滑杆。你可以根据你对交互对象的实际了解，主动调整你对它的期望，使你的期望与你的实际感受更相符。<br>请通过左右拖动滑杆，告诉我们你希望当前的交互对象更偏向于“工具”还是“伙伴”。<br>左端点代表“工具”：偏向于高效、机械、无情感的执行指令；<br>右端点代表“伙伴”：偏向于自然、拟人、具备情感反馈的协作。<br>注意： 你的调节结果仅作为研究者的参考数据，用于了解你的期望偏好，不会改变AI的实际行为。请根据你真实的想法进行调节。"
+        content: "欢迎来到实验二！<br>在刚才的互动中，你已经对这位交互对象有了一定的了解。也许你会发现实际的表现与你最初的期望不完全一致。在本阶段，屏幕上将出现一个调节滑杆。你可以根据你对交互对象的实际了解，主动调整你对它的期望，使你的期望与你的实际感受更相符。<br>请通过左右拖动滑杆，告诉我们你希望当前的交互对象更偏向于“工具”还是“伙伴”。<br>左端点代表“工具”：偏向于高效、机械、无情感的执行指令；<br>右端点代表“伙伴”：偏向于自然、拟人、具备情感反馈的协作。<br>注意： 你的调节结果仅作为研究者的参考数据，用于了解你的期望偏好，不会改变AI的实际行为。请根据你真实的想法进行调节。"
       },
       {
         title: "实验结束",
-        content: "本次实验完成！请联系实验人员。<br>请勿退出此界面！<br>点击下方按钮可导出/保存本次实验全部数据；<br>感谢你的参与，如有疑问可联系实验人员。"
+        content: "本次实验完成！<br>数据已自动保存。<br><br>感谢你的参与，请同实验人员确认后离场。"
       }
     ];
 
@@ -537,7 +537,7 @@
     const slider = document.getElementById("slider");
     const sliderValue = document.getElementById("sliderValue");
     // const feedbackText = document.getElementById("feedbackText");
-    const interactConfirm = document.getElementById("interactConfirm");
+    // const interactConfirm = document.getElementById("interactConfirm");
     const confirmGold = document.getElementById("confirmGold");
     const nextPage = document.getElementById("nextPage");
     const aiFeedbackBox = document.getElementById("aiFeedbackBox");
@@ -563,8 +563,11 @@
       
       // 结束阶段修改按钮文本为“保存数据”
       if (experimentData.baseStep === 2) {
-        baseNext.textContent = "保存实验数据";
-        baseNext.onclick = saveExperimentData; // 绑定保存数据事件
+        saveExperimentData(); // 保存数据到本地
+        baseNext.textContent = "您已完成实验";
+        baseNext.style.disabled = true; // 禁用按钮，防止继续点击
+        baseNext.style.background = "#bdc3c7"; // 修改按钮颜色为灰色
+        baseNext.onclick = null; // 移除点击事件
       } else {
         baseNext.textContent = "确认";
         baseNext.onclick = () => {
@@ -659,6 +662,7 @@
       aiFeedbackBox.style.display = "none"; // 隐藏 AI 回馈框
 
       confirmGold.style.display = "inline-block"; // 显示确认金币按钮
+      confirmGold.disabled = true; // 禁用确认金币按钮，直到输入有效金币数
       nextPage.style.display = "none"; // 隐藏翻页按钮
 
       // 第二轮结束后显示弹窗
@@ -677,8 +681,10 @@
 
     // 金币输入框验证
     goldInput.addEventListener("input", () => {
-      const value = parseInt(goldInput.value) || 0;
-      confirmGold.disabled = !(value >= 0 && value <= 100); // 启用确认金币按钮
+      const val = goldInput.value.trim();
+      const num = Number(val);
+      const isValid = val !== "" && !val.includes(".") && !isNaN(num) && num >=0 && num <=100;
+      confirmGold.disabled = !isValid;
     });
 
     // 确认金币数按钮事件
@@ -775,19 +781,26 @@
     }
 
     // -------------------------- 数据保存功能 --------------------------
-    function saveExperimentData() {
+    // 获取【能当文件名】的安全日期字符串
+    function getDateString() {
       const now = new Date();
       const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      const hour = String(now.getHours()).padStart(2, '0');
-      const min = String(now.getMinutes()).padStart(2, '0');
-      const sec = String(now.getSeconds()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      const hour = String(now.getHours()).padStart(2, "0");
+      const min = String(now.getMinutes()).padStart(2, "0");
+      const sec = String(now.getSeconds()).padStart(2, "0");
 
+      return `${year}-${month}-${day}_${hour}-${min}-${sec}`;
+    }
+
+    const beginTime = getDateString();
+
+    function saveExperimentData() {
       const saveData = {
-        experimentId: `${year}-${month}-${day}_${hour}时${min}分${sec}秒`,
-        createTime: new Date().toLocaleString(),
-        interactRecords: experimentData.interactRecords
+        开始时间: beginTime,
+        保存时间: getDateString(),
+        数据: experimentData.interactRecords
       };
       // 方式1：本地存储（临时保存）
       localStorage.setItem("exp2_data", JSON.stringify(saveData));
@@ -796,7 +809,7 @@
       const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `实验二数据_${saveData.experimentId}.json`;
+      a.download = `实验二数据_${beginTime}.json`;
       a.click();
       
       // 方式3：调用后端接口（替换为你的接口地址）
@@ -809,7 +822,7 @@
       //   else alert("数据保存失败，请重试！");
       // }).catch(err => alert("网络错误：" + err.message));
 
-      alert("实验数据已保存！文件已下载到本地。");
+      // alert("实验数据已保存！文件已下载到本地。");
     }
   </script>
 </body>

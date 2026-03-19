@@ -150,10 +150,36 @@
     }
 
     /* AI互动选择题样式 */
-    .dialog-title {
+    /* .dialog-title {
       font-size: 20px;
       margin-bottom: 25px;
       color: #2c3e50;
+    } */
+    .dialog-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 25px;
+    }
+    .ai-dialog-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-image: url("小晴.png"); /* 替换成图片链接/本地路径 */
+      background-size: cover;
+      background-position: center;
+      flex-shrink: 0;
+    }
+    .dialog-title {
+      font-size: 17px;
+      color: #2c3e50;
+      margin: 0;
+      padding: 12px 16px; /* 内边距 */
+      border: 1px solid #e0e0e0; /* 浅灰色描框 */
+      border-radius: 8px; /* 圆角 */
+      background: #f8f9fa; /* 浅背景色，突出描框 */
+      flex: 1; /* 自适应宽度 */
+      line-height: 1.5;
     }
     .dialog-option-group {
       display: flex;
@@ -205,7 +231,7 @@
       outline: none;
       border-color: #3498db;
     }
-    .feedback-text {
+    /* .feedback-text {
       margin: 20px 0;
       padding: 15px;
       background: #e8f5e9;
@@ -214,6 +240,46 @@
       color: #27ae60;
       line-height: 1.8;
       display: none;
+    } */
+    /* 拟人化AI反馈对话框 */
+    .ai-feedback-box {
+      display: none;
+      margin: 25px 0;
+      animation: fadeIn 0.4s ease;
+    }
+    .ai-chat {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      max-width: 85%;
+    }
+    .ai-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-image: url("小晴.png");
+      background-size: cover;
+      background-position: center;
+      flex-shrink: 0;
+    }
+    .ai-bubble {
+      background: #f1f9ff;
+      border: 1px solid #d1e7ff;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-size: 15px;
+      line-height: 1.6;
+      color: #2c3e50;
+      position: relative;
+    }
+    .ai-gold-result {
+      font-weight: 600;
+      color: #27ae60;
+      margin-bottom: 6px;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     /* 问卷星样式 */
@@ -303,8 +369,11 @@
   <!-- AI互动（三轮选择题）专用容器 -->
   <div class="ai-dialog-container" id="aiDialogStage">
     <h1 class="title">与AI助手互动 - 第<span id="dialogRound">1</span>轮</h1>
-    <div class="dialog-title" id="dialogQuestion" style="white-space: pre-line;">
-      你希望AI助手以什么语气与你交互？
+    <div class="dialog-header">
+      <div class="ai-dialog-avatar"></div> <!-- 头像：文字/图片 -->
+      <div class="dialog-title" id="dialogQuestion">
+        你希望AI助手以什么语气与你交互？
+      </div>
     </div>
     <div class="dialog-option-group" id="dialogOptions">
       <!-- 选项由JS动态生成 -->
@@ -313,7 +382,7 @@
 
   <!-- 交互轮次专用容器 -->
   <div class="interact-container" id="interactStage">
-    <h1 class="title">与AI助手交互 - 第<span id="interactRound">1</span>轮</h1>
+    <h1 class="title">金币交互 - 第<span id="interactRound">1</span>轮</h1>
     <div class="round-text" id="roundText" style="white-space: pre-line;">
       第一轮交互：请根据提示输入你愿意投入的金币数。
     </div>
@@ -324,11 +393,21 @@
       <input type="number" class="number-input" id="goldInput" min="0" max="100" placeholder="例如：50">
     </div>
     
-    <!-- 反馈文本 -->
-    <div class="feedback-text" id="feedbackText"></div>
+    <!-- 拟人化AI反馈对话框 -->
+    <div class="ai-feedback-box" id="aiFeedbackBox">
+      <div class="ai-chat">
+        <div class="ai-avatar"></div>
+        <div class="ai-bubble">
+          <div class="ai-gold-result" id="goldResultText"></div>
+          <div id="aiMessageText"></div>
+        </div>
+      </div>
+    </div>
     
-    <!-- 确认按钮 -->
-    <button class="btn" id="interactConfirm" disabled>确认</button>
+    <!-- 确认金币数按钮 -->
+    <button class="btn" id="confirmGold" disabled>确认</button>
+    <!-- 翻页按钮 -->
+    <button class="btn" id="nextPage" style="display: none;">下一页</button>
   </div>
 
   <script>
@@ -336,8 +415,8 @@
     // 1. 基础阶段（开始/指导语/AI介绍/结束）配置
     const baseConfig = [
       {
-        title: "实验开始",
-        content: "欢迎参与本次实验！请按确定按钮进入下一页。"
+        title: "实验一开始",
+        content: "欢迎参与本次实验！<br>本次共两个实验文件，这是第一个。<br><br>本次实验全程在本地进行，无需联网。<br>请全程不要按F5键、不要刷新或退出浏览器，否则将丢失数据，届时将无法给予被试费。<br><br>按确定按钮进入实验一。"
       },
       {
         title: "实验规则介绍",
@@ -360,7 +439,7 @@
       },
       {
         title: "实验结束",
-        content: "恭喜你完成本次实验！<br>请勿退出此界面！请联系实验人员。<br>所有数据已临时保存，点击下方按钮可导出/保存本次实验全部数据；<br>稍事休息后，我们会开启下一轮实验。"
+        content: "实验一已完成！现在是休息阶段。<br>实验一数据已保存。<br><br>休息完成后，可点击按钮去往实验二。"
       }
     ];
 
@@ -370,7 +449,7 @@
       { title: "填写问卷 - 初始信任", link: "https://v.wjx.cn/vm/PviFffv.aspx" }, // 阶段6-1
       { title: "填写问卷 - 初始期望", link: "https://v.wjx.cn/vm/hTRV8Ao.aspx" }, // 阶段6-2
       { title: "填写问卷 - 期望确认", link: "https://v.wjx.cn/vm/wFmM9fE.aspx" },    // 阶段8-1
-      { title: "填写问卷 - 认知失调", link: "https://v.wjx.cn/vm/rjPAXQs.aspx" },    // 阶段8-2
+      { title: "填写问卷 - 认知确认", link: "https://v.wjx.cn/vm/rjPAXQs.aspx" },    // 阶段8-2
       { title: "填写问卷 - 最终信任", link: "https://v.wjx.cn/vm/PviFffv.aspx" },  // 阶段10
     ];
 
@@ -501,14 +580,22 @@
     const dialogRound = document.getElementById("dialogRound");
     const dialogQuestion = document.getElementById("dialogQuestion");
     const dialogOptions = document.getElementById("dialogOptions");
+    const aiAvatar = document.querySelector(".ai-dialog-avatar");
+    const aiDialogTitle = document.querySelector(".dialog-title");
+    const aiDialogOptionGroup = document.querySelector(".dialog-option-group");
     
     // 交互阶段
     const interactStage = document.getElementById("interactStage");
     const interactRound = document.getElementById("interactRound");
     const roundText = document.getElementById("roundText");
     const goldInput = document.getElementById("goldInput");
-    const feedbackText = document.getElementById("feedbackText");
-    const interactConfirm = document.getElementById("interactConfirm");
+    // const feedbackText = document.getElementById("feedbackText");
+    // const interactConfirm = document.getElementById("interactConfirm");
+    const nextPage = document.getElementById("nextPage");
+    const aiFeedbackBox = document.getElementById("aiFeedbackBox");
+    const goldResultText = document.getElementById("goldResultText");
+    const aiMessageText = document.getElementById("aiMessageText");
+    const confirmGold = document.getElementById("confirmGold");
     
     // 练习转正式弹窗
     const practiceAlert = document.getElementById("practiceAlert");
@@ -521,10 +608,13 @@
       baseTitle.textContent = config.title;
       baseContent.innerHTML = config.content;
       
-      // 结束阶段修改按钮文本为“保存数据”
+      // 结束阶段
       if (experimentData.baseStep === 3) {
-        baseNext.textContent = "保存实验数据";
-        baseNext.onclick = saveExperimentData; // 绑定保存数据事件
+        baseNext.textContent = "前往实验二";
+        saveExperimentData(); // 保存数据到本地
+        baseNext.addEventListener("click", () => {
+          location.href = '实验二伙伴伙伴组1.2.html';
+        }); // 绑定跳转事件
       } else {
         baseNext.textContent = "确认";
         baseNext.onclick = () => {
@@ -683,8 +773,12 @@
       
       // 重置界面状态
       goldInput.value = "";
-      feedbackText.style.display = "none";
-      interactConfirm.disabled = true;
+
+      // feedbackText.style.display = "none";
+      aiFeedbackBox.style.display = "none";
+      confirmGold.style.display = "inline-block";
+      nextPage.style.display = "none";
+      confirmGold.disabled = true;
 
       // 关键逻辑：第二轮结束后显示练习转正式弹窗
       if (experimentData.interactStep === 2) {
@@ -696,14 +790,16 @@
       }
     }
 
-    // 金币输入框验证：仅接受0~100整数
+    // 金币输入框验证
     goldInput.addEventListener("input", () => {
-      const value = parseInt(goldInput.value) || 0;
-      interactConfirm.disabled = !(value >= 0 && value <= 100);
+      const val = goldInput.value.trim();
+      const num = Number(val);
+      const isValid = val !== "" && !val.includes(".") && !isNaN(num) && num >=0 && num <=100;
+      confirmGold.disabled = !isValid;
     });
 
     // 交互确认按钮事件
-    interactConfirm.addEventListener("click", () => {
+    confirmGold.addEventListener("click", () => {
       const inputGold = parseInt(goldInput.value);
       
       // 生成150%~180%随机返还比例
@@ -711,40 +807,72 @@
       const returnGold = Math.round(inputGold * (rate / 100));
       const currentConfig = interactConfig[experimentData.interactStep];
       
-      // 显示反馈文本
-      feedbackText.style.display = "block";
-      feedbackText.innerHTML = `本次返还${returnGold}金币<br>${currentConfig.feedback}`;
+      // 显示翻页按钮，隐藏确认按钮
+      confirmGold.style.display = "none";
+      nextPage.style.display = "inline-block";
+      nextPage.disabled = true; // 再次禁用确认按钮，防止重复点击
+
+      // 显示思考延迟 + 拟人对话框
+      setTimeout(() => {
+        aiFeedbackBox.style.display = "block";
+
+        // 先填金币结果
+        goldResultText.textContent = `本次返还 ${returnGold} 金币`;
+
+        // 逐字打印反馈（更拟人）
+        const text = currentConfig.feedback;
+        aiMessageText.textContent = "";
+        let i = 0;
+        const interval = setInterval(() => {
+          aiMessageText.textContent += text[i];
+          i++;
+          if (i >= text.length) clearInterval(interval);
+        }, 30); // 逐字速度，越小越快
+
+        nextPage.disabled = false; // 启用翻页按钮
+      }, 1000);
       
       // 记录本轮核心数据（输入金币、返还金币）
       experimentData.interactRecords.push({
-        round: experimentData.interactStep + 1,
-        inputGold: inputGold,
-        returnGold: returnGold,
-        feedback: currentConfig.feedback
+        轮次: experimentData.interactStep + 1,
+        输入金币数: inputGold,
+        返还金币数: returnGold,
       });
       
-      // 禁用按钮，延迟跳转
-      interactConfirm.disabled = true;
-      setTimeout(() => {
+      nextPage.onclick = () => {
         experimentData.interactStep++;
         if (experimentData.interactStep >= interactConfig.length) {
-          // 15轮交互完成，跳阶段10（2份问卷）
+          // 交互完成，跳阶段10（2份问卷）
           interactStage.classList.remove("active");
           surveyStage.classList.add("active");
           initSurveyStage();
         } else {
           initInteractStage();
         }
-      }, 3000);
+      };
     });
 
     // -------------------------- 数据保存功能 --------------------------
+    // 获取【能当文件名】的安全日期字符串
+    function getDateString() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      const hour = String(now.getHours()).padStart(2, "0");
+      const min = String(now.getMinutes()).padStart(2, "0");
+      const sec = String(now.getSeconds()).padStart(2, "0");
+
+      return `${year}-${month}-${day}_${hour}-${min}-${sec}`;
+    }
+
+    const beginTime = getDateString();
+    
     function saveExperimentData() {
-      // 完整数据打包
       const saveData = {
-        experimentId: "exp1_" + new Date().getTime(), // 唯一实验ID
-        createTime: new Date().toLocaleString(),
-        interactRecords: experimentData.interactRecords // 核心：每轮输入/返还金币
+        开始时间: beginTime,
+        保存时间: getDateString(),
+        数据: experimentData.interactRecords
       };
 
       // 方式1：本地存储（临时保存）
@@ -754,7 +882,7 @@
       const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `实验一数据_${saveData.experimentId}.json`;
+      a.download = `实验一数据_${beginTime}.json`;
       a.click();
       
       // 方式3：调用后端接口（替换为你的接口地址）
@@ -767,7 +895,7 @@
       //   else alert("数据保存失败，请重试！");
       // }).catch(err => alert("网络错误：" + err.message));
 
-      alert("实验数据已保存！文件已下载到本地。");
+      // alert("实验数据已保存！文件已下载到本地。");
     }
   </script>
 </body>
