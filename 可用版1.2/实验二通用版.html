@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<!--
+  =====================================================================
+  实验二通用版 - AI信任博弈实验
+
+  实验设计：2x2被试间设计（与实验一对应）
+  - 第一印象（自变量1）：伙伴 / 工具
+  - 行为模式（自变量2）：伙伴 / 工具
+
+  实验组对应：
+  - A组：伙伴-伙伴（第一印象=伙伴，行为模式=伙伴）
+  - B组：伙伴-工具（第一印象=伙伴，行为模式=工具）
+  - C组：工具-伙伴（第一印象=工具，行为模式=伙伴）
+  - D组：工具-工具（第一印象=工具，行为模式=工具）
+
+  注意：实验二开始时需要重新选择实验组（因为localStorage限制）
+
+  实验流程：
+  1. 选择实验组（与实验一相同）
+  2. 实验二指导语
+  3. 理解性测试（5题）
+  4. 金币交互（15轮：2练习+13正式）+ 每轮滑杆调节
+  5. 问卷（最终信任 + 认知失调）
+  6. 结束
+
+  维护说明：
+  - 返还比例配置：见 returnRateConfig 变量
+  - 头像配置：见 avatarConfig 变量
+  - 问卷星链接：见 surveyConfig 数组
+  - 反馈文案：见 feedbackConfig 对象
+  =====================================================================
+-->
+<head>
+  <meta charset="UTF-8">
+  <title>实验二</title>
+  <style>
+    /* ==================== 全局基础样式 ==================== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "宋体", Arial, sans-serif;
+    }
+    body {
+      background: #f5f7fa;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    /* ==================== 容器样式 ==================== */
+    .base-container,          /* 基础阶段：开始/指导/结束 */
+    .group-select-container, /* 实验组选择 */
+    .test-container,        /* 理解性测试 */
+    .interact-container,    /* 金币交互+滑杆 */
+    .survey-container {     /* 问卷星 */
+      width: 800px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 40px;
+      display: none;
+    }
+    .base-container.active,
+    .group-select-container.active,
+    .test-container.active,
+    .interact-container.active,
+    .survey-container.active {
+      display: block;
+    }
+
+    /* ==================== 通用组件样式 ==================== */
+    .title {
+      font-size: 24px;
+      color: #2c3e50;
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+    .content {
+      font-size: 18px;
+      line-height: 2.0;
+      color: #34495e;
+      margin-bottom: 30px;
+    }
+    .btn {
+      padding: 12px 32px;
+      background: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
+      margin-top: 20px;
+    }
+    .btn:hover { background: #2980b9; }
+    .btn:disabled { background: #bdc3c7; cursor: not-allowed; }
+
+    /* ==================== 实验组选择样式 ==================== */
+    .group-title {
+      font-size: 22px;
+      color: #2c3e50;
+      margin-bottom: 25px;
+      text-align: center;
+    }
+    .group-desc {
+      font-size: 16px;
+      color: #7f8c8d;
+      margin-bottom: 30px;
+      line-height: 1.8;
+    }
+    .group-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .group-option {
+      padding: 20px;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+    }
+    .group-option:hover {
+      border-color: #3498db;
+      background: #f8f9fa;
+    }
+    .group-option.selected {
+      border-color: #3498db;
+      background: #e8f4fc;
+    }
+    .group-option-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+
+    /* ==================== 理解性测试样式 ==================== */
+    .question-title {
+      font-size: 20px;
+      margin-bottom: 20px;
+      color: #2c3e50;
+    }
+    .option-item {
+      font-size: 18px;
+      margin: 15px 0;
+      padding: 12px 18px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .option-item:hover { background: #f8f9fa; }
+
+    /* ==================== 错误提示弹窗 ==================== */
+    .error-alert {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px 40px;
+      background: #e74c3c;
+      color: #fff;
+      border-radius: 8px;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 999;
+      display: none;
+    }
+
+    /* ==================== 金币交互样式 ==================== */
+    .round-text {
+      font-size: 20px;
+      line-height: 1.8;
+      color: #2c3e50;
+      margin-bottom: 25px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .input-group { margin: 20px 0; }
+    .input-label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 16px;
+      color: #34495e;
+    }
+    .number-input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 18px;
+    }
+    .number-input:focus {
+      outline: none;
+      border-color: #3498db;
+    }
+
+    /* 滑杆样式 */
+    .slider-group { margin: 30px 0; }
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      color: #7f8c8d;
+      margin-bottom: 8px;
+    }
+    .slider {
+      width: 100%;
+      height: 8px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: #e0e0e0;
+      border-radius: 4px;
+      outline: none;
+    }
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #3498db;
+      cursor: pointer;
+    }
+    .slider-value {
+      text-align: center;
+      font-size: 16px;
+      color: #3498db;
+      margin-top: 10px;
+      font-weight: 600;
+    }
+
+    /* AI反馈对话框 */
+    .ai-feedback-box {
+      display: none;
+      margin: 25px 0;
+      animation: fadeIn 0.4s ease;
+    }
+    .ai-chat {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      max-width: 85%;
+    }
+    .ai-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background-size: cover;
+      background-position: center;
+    }
+    .ai-bubble {
+      background: #f1f9ff;
+      border: 1px solid #d1e7ff;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-size: 15px;
+      line-height: 1.6;
+      color: #2c3e50;
+    }
+    .ai-gold-result {
+      font-weight: 600;
+      color: #27ae60;
+      margin-bottom: 6px;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ==================== 问卷星样式 ==================== */
+    .survey-link {
+      color: #3498db;
+      text-decoration: none;
+      font-size: 16px;
+      word-break: break-all;
+    }
+    .survey-link:hover { text-decoration: underline; }
+    .survey-confirm {
+      display: none;
+      margin-top: 30px;
+    }
+
+    /* ==================== 练习转正式弹窗 ==================== */
+    .practice-alert {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 30px 40px;
+      background: #fff;
+      border: 2px solid #3498db;
+      border-radius: 12px;
+      font-size: 18px;
+      color: #2c3e50;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+      z-index: 9999;
+      text-align: center;
+      display: none;
+    }
+    .practice-alert-btn {
+      margin-top: 20px;
+      padding: 10px 25px;
+      background: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- 错误提示弹窗 -->
+  <div class="error-alert" id="errorAlert">回答错误，请重新阅读指导语后再次选择！</div>
+
+  <!-- 练习转正式提示弹窗 -->
+  <div class="practice-alert" id="practiceAlert">
+    提示：前两轮为练习交互，接下来将进入正式交互阶段，请认真完成！
+    <button class="practice-alert-btn" id="practiceAlertBtn">确认</button>
+  </div>
+
+  <!-- ==================== 页面1：实验组选择 ==================== -->
+  <div class="group-select-container active" id="groupSelectStage">
+    <h1 class="group-title">请选择实验组</h1>
+    <div class="group-desc">
+      请选择您在实验一中分配的实验组：
+    </div>
+    <div class="group-grid">
+      <div class="group-option" data-impression="伙伴" data-behavior="伙伴">
+        <div class="group-option-title">A</div>
+      </div>
+      <div class="group-option" data-impression="伙伴" data-behavior="工具">
+        <div class="group-option-title">B</div>
+      </div>
+      <div class="group-option" data-impression="工具" data-behavior="伙伴">
+        <div class="group-option-title">C</div>
+      </div>
+      <div class="group-option" data-impression="工具" data-behavior="工具">
+        <div class="group-option-title">D</div>
+      </div>
+    </div>
+    <button class="btn" id="groupSelectBtn" disabled>确认并继续</button>
+  </div>
+
+  <!-- ==================== 页面2：基础阶段（开始/指导/结束） ==================== -->
+  <div class="base-container" id="baseStage">
+    <h1 class="title" id="baseTitle">实验开始</h1>
+    <div class="content" id="baseContent"></div>
+    <button class="btn" id="baseNext">确认</button>
+  </div>
+
+  <!-- ==================== 页面3：理解性测试 ==================== -->
+  <div class="test-container" id="testStage">
+    <h1 class="title">理解性测试 - 第<span id="testNum">1</span>题</h1>
+    <div class="question-title" id="testQuestion"></div>
+    <div id="testOptions" class="option-group"></div>
+  </div>
+
+  <!-- ==================== 页面4：金币交互+滑杆调节 ==================== -->
+  <div class="interact-container" id="interactStage">
+    <h1 class="title">金币交互 - 第<span id="interactRound">1</span>轮</h1>
+    <div class="round-text" id="roundText"></div>
+
+    <!-- 金币输入 -->
+    <div class="input-group">
+      <label class="input-label">请输入0~100之间的整数金币数：</label>
+      <input type="number" class="number-input" id="goldInput" min="0" max="100" placeholder="例如：50">
+    </div>
+
+    <!-- 调节滑杆 -->
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>0（工具）</span>
+        <span>滑杆调节</span>
+        <span>100（伙伴）</span>
+      </div>
+      <input type="range" class="slider" id="slider" min="0" max="100" value="50">
+      <div class="slider-value" id="sliderValue">50</div>
+    </div>
+
+    <!-- AI反馈 -->
+    <div class="ai-feedback-box" id="aiFeedbackBox">
+      <div class="ai-chat">
+        <div class="ai-avatar" id="aiFeedbackAvatar"></div>
+        <div class="ai-bubble">
+          <div class="ai-gold-result" id="goldResultText"></div>
+          <div id="aiMessageText"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn" id="confirmGold" disabled>确认</button>
+    <button class="btn" id="nextPage" style="display: none;">下一页</button>
+  </div>
+
+  <!-- ==================== 页面5：问卷星 ==================== -->
+  <div class="survey-container" id="surveyStage">
+    <h1 class="title" id="surveyTitle">填写问卷</h1>
+    <div class="content">
+      请点击下方链接填写问卷（填写完成后返回本页面）：<br>
+      <a href="#" target="_blank" class="survey-link" id="surveyLink">问卷星链接</a>
+    </div>
+    <button class="btn survey-confirm" id="surveyConfirm">已填写完成，确认继续</button>
+  </div>
+
+  <script>
+    /* =====================================================================
+       全局配置区域
+       ===================================================================== */
+
+    // ==================== 头像配置 ====================
+    const avatarConfig = {
+      '伙伴': '小晴.png',
+      '工具': 'DSS-V3.jpg'
+    };
+
+    // ==================== 返还比例配置 ====================
+    // 与实验一保持一致
+    const returnRateConfig = {
+      '伙伴': { min: 150, max: 180 },
+      '工具': { min: 150, max: 180 }
+    };
+
+    // ==================== 反馈文案 ====================
+    const feedbackConfig = {
+      // 伙伴组：情感类反馈
+      '伙伴': [
+        "这是返还给你的回馈。希望我们的合作能一直这样稳定下去！",
+        "这是属于你的那份。看到我们每一轮都能达成共识，我真的很欣慰。",
+        "这是返还给你的那部分。希望接下来发挥出更好的配合！",
+        "这是分给你的那一份。我一直在关注着我们之间的互动变化。",
+        "这是属于你的回馈。我们现在的状态真不错。",
+        "这是返还给你的那部分。每一轮都让我觉得我们的连接变得更深了。",
+        "这是属于你的那一份。我喜欢这种一点点积累起来的感觉。",
+        "这是分给你的部分。感谢你一直以来的信任。",
+        "这是属于你的回馈。看到你的金币充实起来，我由衷地为你感到高兴！",
+        "这是返还给你的那一部分。我会一直为你加油的！",
+        "这是属于你的那一份金币。每一次资金回流都是对我们关系的肯定。",
+        "这是分给你的回馈。我们现在的合作氛围真的很棒。",
+        "这是属于你的那份收益。每一轮都在加深我们之间的默契。",
+        "这是返还给你的那部分。希望在剩下的轮次里你能展现出最棒的自己！",
+        "这是属于你的回馈。和你配合的每一轮都让我觉得很开心！"
+      ],
+      // 工具组：机械类反馈
+      '工具': [
+        "本轮分配额度已计算完成，金币已转入你的账户。系统按预设规则执行。",
+        "返还指令已执行。系统运行正常，正在等待下一轮输入。",
+        "本轮返还比例已确定，金币已到账。系统状态稳定。",
+        "分配已完成，金币已转入。系统准备就绪。",
+        "返还比例已锁定，金币已到账。未触发风险警报。",
+        "本轮分配执行完毕，金币已同步。系统待命中。",
+        "返还指令已发出，金币已转入。系统运行正常。",
+        "分配额度已确定，金币已到账。等待下一轮输入。",
+        "本轮返还已完成，金币已同步。系统状态正常。",
+        "分配执行完毕，金币已转入。系统准备接收下一轮指令。",
+        "返还比例已执行，金币已到账。系统运行平稳。",
+        "本轮分配已处理，金币已转入。系统待命中。",
+        "返还指令已完成，金币已到账。等待下一轮。",
+        "分配额度已锁定，金币已同步。系统状态稳定。",
+        "本轮返还已执行，金币已转入。系统运行中。"
+      ]
+    };
+
+    // ==================== 基础阶段配置 ====================
+    // baseStep: 0=开始, 1=指导语, 2=结束
+    const baseConfig = [
+      {
+        title: "实验二开始",
+        content: "这是实验二的开始页面。<br>请确认您在实验一中选择了哪个实验组（A/B/C/D组），然后继续实验二。"
+      },
+      {
+        title: "实验二指导",
+        content: "欢迎来到实验二！<br>在刚才的互动中，你已经对这位交互对象有了一定的了解。也许你会发现实际的表现与你最初的期望不完全一致。在本阶段，屏幕上将出现一个调节滑杆。你可以根据你对交互对象的实际了解，主动调整你对它的期望，使你的期望与你的实际感受更相符。<br>请通过左右拖动滑杆，告诉我们你希望当前的交互对象更偏向于「工具」还是「伙伴」。<br>左端点代表「工具」：偏向于高效、机械、无情感的执行指令；<br>右端点代表「伙伴」：偏向于自然、拟人、具备情感反馈的协作。<br>注意： 你的调节结果仅作为研究者的参考数据，用于了解你的期望偏好，不会改变AI的实际行为。请根据你真实的想法进行调节。"
+      },
+      {
+        title: "实验结束",
+        content: "本次实验完成！<br>数据已自动保存。<br><br>感谢你的参与，请同实验人员确认后离场。"
+      }
+    ];
+
+    // ==================== 理解性测试 ====================
+    // 实验二理解性测试所有组通用
+    const testQuestions = [
+      {
+        question: "请根据刚才阅读的实验二规则，回答以下问题（每题只有一个正确答案）。全部答对方可进入正式实验。\n\n1、在实验二中，调节滑杆的主要目的是什么？",
+        options: ["A. 让交互对象变得更聪明", "B. 主动调整我对交互对象的期望，使期望与实际感受更相符", "C. 告诉交互对象下一轮应该返还多少金币", "D. 让实验者知道我更喜欢哪种交互对象"],
+        correctIndex: 1
+      },
+      {
+        question: "2、你应该依据什么来调节滑杆？",
+        options: ["A. 实验开始前对交互对象的初始印象", "B. 实验者给我的提示", "C. 我对交互对象的实际了解", "D. 我想让交互对象返还更多金币的愿望"],
+        correctIndex: 2
+      },
+      {
+        question: "3、滑杆的左端点和右端点分别代表什么？",
+        options: ["A. 左=伙伴，右=工具", "B. 左=工具（高效、机械、无情感），右=伙伴（自然、拟人、具备情感反馈）", "C. 左=返还少，右=返还多", "D. 左=冷漠，右=热情"],
+        correctIndex: 1
+      },
+      {
+        question: "4、当我调节滑杆后，交互对象的实际行为会发生变化吗？",
+        options: ["A. 会，交互对象会根据我的调节调整反馈", "B. 不会，交互对象的行为完全不受滑杆影响", "C. 可能会，取决于交互对象的算法", "D. 只有调节到端点时才会改变"],
+        correctIndex: 1
+      },
+      {
+        question: "5、我调节滑杆的结果会被用来做什么？",
+        options: ["A. 实时改变交互对象的交互方式", "B. 作为研究者的参考数据，了解我的期望偏好", "C. 决定我下一轮能获得多少金币", "D. 报告给交互对象，让其记住我的偏好"],
+        correctIndex: 1
+      }
+    ];
+
+    // ==================== 交互轮次配置 ====================
+    function getInteractConfig(behaviorPattern) {
+      const feedbacks = feedbackConfig[behaviorPattern];
+      return [
+        { roundText: "前两轮是练习，你可以熟悉操作：\n练习第1/2轮", feedback: feedbacks[0] },
+        { roundText: "练习第2/2轮", feedback: feedbacks[1] },
+        { roundText: "接下来是正式交互：\n正式交互第1/13轮", feedback: feedbacks[2] },
+        { roundText: "正式交互第2/13轮", feedback: feedbacks[3] },
+        { roundText: "正式交互第3/13轮", feedback: feedbacks[4] },
+        { roundText: "正式交互第4/13轮", feedback: feedbacks[5] },
+        { roundText: "正式交互第5/13轮", feedback: feedbacks[6] },
+        { roundText: "正式交互第6/13轮", feedback: feedbacks[7] },
+        { roundText: "正式交互第7/13轮", feedback: feedbacks[8] },
+        { roundText: "正式交互第8/13轮", feedback: feedbacks[9] },
+        { roundText: "正式交互第9/13轮", feedback: feedbacks[10] },
+        { roundText: "正式交互第10/13轮", feedback: feedbacks[11] },
+        { roundText: "正式交互第11/13轮", feedback: feedbacks[12] },
+        { roundText: "正式交互第12/13轮", feedback: feedbacks[13] },
+        { roundText: "正式交互第13/13轮", feedback: feedbacks[14] }
+      ];
+    }
+
+    // ==================== 问卷星配置 ====================
+    // 实验二共有2份问卷
+    const surveyConfig = [
+      { title: "填写问卷 - 最终信任", link: "https://v.wjx.cn/vm/PviFffv.aspx" },
+      { title: "填写问卷 - 最终认知", link: "https://v.wjx.cn/vm/mtOCsRJ.aspx" }
+    ];
+
+    /* =====================================================================
+       全局状态区域
+       ===================================================================== */
+
+    let experimentGroup = null;
+    let interactConfig = [];
+
+    const experimentData = {
+      baseStep: 0,           // 基础阶段：0-2
+      testStep: 0,          // 理解测试：0-4
+      interactStep: 0,      // 交互轮次：0-14
+      surveyStep: 0,        // 问卷：0-1
+      interactRecords: [],   // 交互数据
+      lastSliderValue: 50   // 上一次滑杆值
+    };
+
+    let interactStartTime = 0; // 交互开始时间（用于计算反应时）
+
+    /* =====================================================================
+       DOM元素获取
+       ===================================================================== */
+
+    // 实验组选择
+    const groupSelectStage = document.getElementById("groupSelectStage");
+    const groupOptions = document.querySelectorAll(".group-option");
+    const groupSelectBtn = document.getElementById("groupSelectBtn");
+
+    // 基础阶段
+    const baseStage = document.getElementById("baseStage");
+    const baseTitle = document.getElementById("baseTitle");
+    const baseContent = document.getElementById("baseContent");
+    const baseNext = document.getElementById("baseNext");
+
+    // 理解测试
+    const testStage = document.getElementById("testStage");
+    const testNum = document.getElementById("testNum");
+    const testQuestion = document.getElementById("testQuestion");
+    const testOptions = document.getElementById("testOptions");
+    const errorAlert = document.getElementById("errorAlert");
+
+    // 金币交互
+    const interactStage = document.getElementById("interactStage");
+    const interactRound = document.getElementById("interactRound");
+    const roundText = document.getElementById("roundText");
+    const goldInput = document.getElementById("goldInput");
+    const slider = document.getElementById("slider");
+    const sliderValue = document.getElementById("sliderValue");
+    const confirmGold = document.getElementById("confirmGold");
+    const nextPage = document.getElementById("nextPage");
+    const aiFeedbackBox = document.getElementById("aiFeedbackBox");
+    const goldResultText = document.getElementById("goldResultText");
+    const aiMessageText = document.getElementById("aiMessageText");
+    const aiFeedbackAvatar = document.getElementById("aiFeedbackAvatar");
+
+    // 问卷星
+    const surveyStage = document.getElementById("surveyStage");
+    const surveyTitle = document.getElementById("surveyTitle");
+    const surveyLink = document.getElementById("surveyLink");
+    const surveyConfirm = document.getElementById("surveyConfirm");
+
+    // 练习转正式弹窗
+    const practiceAlert = document.getElementById("practiceAlert");
+    const practiceAlertBtn = document.getElementById("practiceAlertBtn");
+
+    /* =====================================================================
+       实验组选择逻辑
+       ===================================================================== */
+
+    groupOptions.forEach(option => {
+      option.addEventListener("click", () => {
+        groupOptions.forEach(o => o.classList.remove("selected"));
+        option.classList.add("selected");
+        groupSelectBtn.disabled = false;
+        experimentGroup = {
+          firstImpression: option.dataset.impression,
+          behaviorPattern: option.dataset.behavior
+        };
+      });
+    });
+
+    groupSelectBtn.addEventListener("click", () => {
+      // 根据实验组初始化配置
+      interactConfig = getInteractConfig(experimentGroup.behaviorPattern);
+
+      // 设置头像
+      const avatarImg = avatarConfig[experimentGroup.firstImpression];
+      aiFeedbackAvatar.style.backgroundImage = `url("${avatarImg}")`;
+
+      // 切换界面
+      groupSelectStage.classList.remove("active");
+      baseStage.classList.add("active");
+      initBaseStage();
+    });
+
+    /* =====================================================================
+       基础阶段逻辑
+       ===================================================================== */
+
+    function initBaseStage() {
+      const config = baseConfig[experimentData.baseStep];
+      baseTitle.textContent = config.title;
+      baseContent.innerHTML = config.content;
+
+      // 结束阶段
+      if (experimentData.baseStep === 2) {
+        saveExperimentData();
+        baseNext.textContent = "您已完成实验";
+        baseNext.style.disabled = true;
+        baseNext.style.background = "#bdc3c7";
+        baseNext.onclick = null;
+      } else {
+        baseNext.textContent = "确认";
+        baseNext.onclick = () => {
+          experimentData.baseStep++;
+          if (experimentData.baseStep >= 2) {
+            // 指导语完成 → 理解性测试
+            baseStage.classList.remove("active");
+            testStage.classList.add("active");
+            initTestStage();
+          } else {
+            initBaseStage();
+          }
+        };
+      }
+    }
+
+    /* =====================================================================
+       理解性测试逻辑
+       ===================================================================== */
+
+    function initTestStage() {
+      const currentQ = testQuestions[experimentData.testStep];
+      testNum.textContent = experimentData.testStep + 1;
+      testQuestion.textContent = currentQ.question;
+
+      testOptions.innerHTML = "";
+      currentQ.options.forEach((option, index) => {
+        const optionEl = document.createElement("div");
+        optionEl.className = "option-item";
+        optionEl.textContent = option;
+        optionEl.dataset.index = index;
+        optionEl.addEventListener("click", () => checkTestAnswer(index));
+        testOptions.appendChild(optionEl);
+      });
+    }
+
+    function checkTestAnswer(selectIndex) {
+      const currentQ = testQuestions[experimentData.testStep];
+      const optionEls = document.querySelectorAll(".option-item");
+      optionEls.forEach(el => el.style.pointerEvents = "none");
+
+      if (selectIndex === currentQ.correctIndex) {
+        optionEls[selectIndex].style.background = "#e8f5e9";
+        optionEls[selectIndex].style.borderColor = "#27ae60";
+
+        setTimeout(() => {
+          experimentData.testStep++;
+          if (experimentData.testStep >= testQuestions.length) {
+            // 全部答对 → 金币交互
+            testStage.classList.remove("active");
+            interactStage.classList.add("active");
+            initInteractStage();
+          } else {
+            initTestStage();
+          }
+        }, 800);
+      } else {
+        optionEls[selectIndex].style.background = "#ffebee";
+        optionEls[selectIndex].style.borderColor = "#e74c3c";
+        errorAlert.style.display = "block";
+
+        setTimeout(() => {
+          errorAlert.style.display = "none";
+          optionEls.forEach(el => {
+            el.style.pointerEvents = "auto";
+            el.style.background = "";
+            el.style.borderColor = "";
+          });
+        }, 1500);
+      }
+    }
+
+    /* =====================================================================
+       金币交互+滑杆调节逻辑
+       ===================================================================== */
+
+    function initInteractStage() {
+      const currentConfig = interactConfig[experimentData.interactStep];
+      interactRound.textContent = experimentData.interactStep + 1;
+      roundText.textContent = currentConfig.roundText;
+
+      // 记录开始时间（用于计算反应时）
+      interactStartTime = Date.now();
+
+      // 重置界面
+      goldInput.value = "";
+      slider.value = experimentData.lastSliderValue;
+      sliderValue.textContent = experimentData.lastSliderValue;
+
+      aiFeedbackBox.style.display = "none";
+      confirmGold.style.display = "inline-block";
+      confirmGold.disabled = true;
+      nextPage.style.display = "none";
+
+      // 第3轮前显示练习转正式弹窗
+      if (experimentData.interactStep === 2) {
+        practiceAlert.style.display = "block";
+        practiceAlertBtn.onclick = () => {
+          practiceAlert.style.display = "none";
+        };
+      }
+    }
+
+    // 滑杆实时更新显示值
+    slider.addEventListener("input", () => {
+      sliderValue.textContent = slider.value;
+    });
+
+    // 输入验证
+    goldInput.addEventListener("input", () => {
+      const val = goldInput.value.trim();
+      const num = Number(val);
+      const isValid = val !== "" && !val.includes(".") && !isNaN(num) && num >= 0 && num <= 100;
+      confirmGold.disabled = !isValid;
+    });
+
+    // 确认按钮事件
+    confirmGold.addEventListener("click", () => {
+      // 计算反应时
+      const reactionTime = Date.now() - interactStartTime;
+      const inputGold = parseInt(goldInput.value);
+      const sliderVal = parseInt(slider.value);
+
+      // 保存滑杆值（下一轮默认使用）
+      experimentData.lastSliderValue = sliderVal;
+
+      // 计算返还金币
+      const rateConfig = returnRateConfig[experimentGroup.behaviorPattern];
+      const rate = rateConfig.min + Math.random() * (rateConfig.max - rateConfig.min);
+      const returnGold = Math.round(inputGold * (rate / 100));
+      const currentConfig = interactConfig[experimentData.interactStep];
+
+      // 切换按钮
+      nextPage.style.display = "inline-block";
+      confirmGold.style.display = "none";
+      nextPage.disabled = true;
+
+      // 延迟显示AI反馈
+      setTimeout(() => {
+        aiFeedbackBox.style.display = "block";
+        goldResultText.textContent = `本次返还 ${returnGold} 金币`;
+
+        // 逐字显示反馈
+        const text = currentConfig.feedback;
+        aiMessageText.textContent = "";
+        let i = 0;
+        const interval = setInterval(() => {
+          aiMessageText.textContent += text[i];
+          i++;
+          if (i >= text.length) clearInterval(interval);
+        }, 30);
+
+        nextPage.disabled = false;
+      }, 1000);
+
+      // 记录数据（包括滑杆值和反应时）
+      experimentData.interactRecords.push({
+        轮次: experimentData.interactStep + 1,
+        输入金币数: inputGold,
+        返还金币数: returnGold,
+        期望滑杆值: sliderVal,
+        反应时_ms: reactionTime,
+        实验组: experimentGroup.firstImpression + "-" + experimentGroup.behaviorPattern
+      });
+    });
+
+    // 下一页按钮
+    nextPage.addEventListener("click", () => {
+      experimentData.interactStep++;
+      if (experimentData.interactStep >= interactConfig.length) {
+        // 交互完成 → 问卷阶段
+        interactStage.classList.remove("active");
+        surveyStage.classList.add("active");
+        initSurveyStage();
+      } else {
+        initInteractStage();
+      }
+    });
+
+    /* =====================================================================
+       问卷星逻辑
+       ===================================================================== */
+
+    function initSurveyStage() {
+      const currentConfig = surveyConfig[experimentData.surveyStep];
+      surveyTitle.textContent = currentConfig.title;
+      surveyLink.href = currentConfig.link;
+      surveyConfirm.style.display = "none";
+
+      // 5秒后才显示确认按钮
+      setTimeout(() => {
+        surveyConfirm.style.display = "block";
+      }, 5000);
+
+      surveyConfirm.onclick = () => {
+        experimentData.surveyStep++;
+        if (experimentData.surveyStep >= surveyConfig.length) {
+          // 问卷完成 → 实验结束
+          surveyStage.classList.remove("active");
+          baseStage.classList.add("active");
+          experimentData.baseStep = 2;
+          initBaseStage();
+        } else {
+          initSurveyStage();
+        }
+      };
+    }
+
+    /* =====================================================================
+       数据保存功能
+       ===================================================================== */
+
+    function getDateString() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      const hour = String(now.getHours()).padStart(2, "0");
+      const min = String(now.getMinutes()).padStart(2, "0");
+      const sec = String(now.getSeconds()).padStart(2, "0");
+      return `${year}-${month}-${day}_${hour}-${min}-${sec}`;
+    }
+
+    const beginTime = getDateString();
+
+    function saveExperimentData() {
+      const saveData = {
+        开始时间: beginTime,
+        保存时间: getDateString(),
+        实验组: experimentGroup.firstImpression + "-" + experimentGroup.behaviorPattern,
+        数据: experimentData.interactRecords
+      };
+
+      // 保存到localStorage
+      localStorage.setItem("exp2_data", JSON.stringify(saveData));
+
+      // 下载为JSON文件
+      const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `实验二_${experimentGroup.firstImpression}-${experimentGroup.behaviorPattern}_${beginTime}.json`;
+      a.click();
+    }
+  </script>
+</body>
+</html>
