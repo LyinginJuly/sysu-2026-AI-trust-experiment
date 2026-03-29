@@ -24,6 +24,18 @@
 - 数据保存后会以json格式下载到电脑/downloads文件夹，可以用vscode打开查看，也可保存后集中处理。
 
 实验三：
+
+Method 1 (Terminal; 最新版 untested):
+
+- 安装 nodejs, 确保可以使用 npm 和 node
+- 检查方法：在终端中输入 `npm -v` 和 `node -v` 若均能显示版本号则成功
+- 实验三文件夹下载到本地，终端进入实验三文件夹
+- 使用 `npm install` 命令配置环境
+- 配置完成后，输入 `node server.js` 运行程序
+- Ctrl + 左键终端中给出的网址，跳转到实验程序
+
+Method 2 (下载 + Terminal; 目前未将最新版打包为rar):
+
 - 当前仍属于编码环境，需提前在电脑上安装nodejs以运行。
 启动运行：
   - 解压缩；
