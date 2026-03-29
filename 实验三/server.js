@@ -8,7 +8,7 @@ const PORT = 3000;
 
 // ====================== 你的配置 ======================
 const CONFIG = {
-  TOKEN: "f2997aca-23b5-4425-9464-8cec1ffc5174", // //"3ad0254b-286c-4f6b-819c-4c603364f8bf",
+  TOKEN: "3ad0254b-286c-4f6b-819c-4c603364f8bf",
   AI_API_URL: "https://ark.cn-beijing.volces.com/api/v3/chat/completions", // 修正接口地址
   AI_MODEL: "doubao-seed-2-0-pro-260215",
 };
