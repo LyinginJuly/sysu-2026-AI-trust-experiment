@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<!--
+  =====================================================================
+  实验三阶段二 - AI信任博弈实验
+
+  实验设计：2x2x2混合设计
+  - 第一印象（自变量1）：伙伴 / 工具
+  - 行为模式（自变量2）：伙伴 / 工具
+  - 版本（自变量3）：A（不可调节+对话）/ B（可调节+对话）
+
+  实验组对应（第一印象-行为模式）：
+  - A组：伙伴-伙伴
+  - B组：伙伴-工具
+  - C组：工具-伙伴
+  - D组：工具-工具
+
+  实验流程：
+  1. 选择实验组 + 版本
+  2. 实验规则指导语
+  3. 理解性测试（版本A=4题，版本B=5题）
+  4. 金币交互（10轮：2练习+8正式）+ 对话 + 滑杆（仅版本B）
+  5. 每轮后测（信任量表+认知失调量表）
+  6. 结束
+
+  维护说明：
+  - 返还比例配置：见 returnRateConfig 变量
+  - 头像配置：见 avatarConfig 变量
+  - 问卷链接：见 surveyConfig 对象
+  - 无效对话检测：见 INVALID_PATTERNS 常量
+  =====================================================================
+-->
+<head>
+  <meta charset="UTF-8">
+  <title>实验三阶段二</title>
+  <style>
+    /* ==================== 全局基础样式 ==================== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "宋体", Arial, sans-serif;
+    }
+    body {
+      background: #f5f7fa;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    /* ==================== 容器样式 ==================== */
+    .base-container,          /* 基础阶段：开始/指导/结束 */
+    .group-select-container, /* 实验组+版本选择 */
+    .test-container,          /* 理解性测试 */
+    .interact-container,      /* 金币交互 */
+    .slider-container,        /* 滑杆调节（版本B） */
+    .chat-container,          /* 对话环节 */
+    .survey-container {       /* 问卷星 */
+      width: 800px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 40px;
+      display: none;
+    }
+    .base-container.active,
+    .group-select-container.active,
+    .test-container.active,
+    .interact-container.active,
+    .slider-container.active,
+    .chat-container.active,
+    .survey-container.active {
+      display: block;
+    }
+
+    /* ==================== 通用组件样式 ==================== */
+    .title {
+      font-size: 24px;
+      color: #2c3e50;
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+    .content {
+      font-size: 18px;
+      line-height: 2.0;
+      color: #34495e;
+      margin-bottom: 30px;
+    }
+    .btn {
+      padding: 12px 32px;
+      background: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
+      margin-top: 20px;
+    }
+    .btn:hover { background: #2980b9; }
+    .btn:disabled { background: #bdc3c7; cursor: not-allowed; }
+
+    /* ==================== 实验组选择样式 ==================== */
+    .group-title {
+      font-size: 22px;
+      color: #2c3e50;
+      margin-bottom: 25px;
+      text-align: center;
+    }
+    .group-desc {
+      font-size: 16px;
+      color: #7f8c8d;
+      margin-bottom: 20px;
+      line-height: 1.8;
+    }
+    .section-label {
+      font-size: 18px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin: 25px 0 15px 0;
+    }
+    .group-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    .group-option {
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+    }
+    .group-option:hover {
+      border-color: #3498db;
+      background: #f8f9fa;
+    }
+    .group-option.selected {
+      border-color: #3498db;
+      background: #e8f4fc;
+    }
+    .group-option-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    .version-option {
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .version-option:hover {
+      border-color: #3498db;
+      background: #f8f9fa;
+    }
+    .version-option.selected {
+      border-color: #3498db;
+      background: #e8f4fc;
+    }
+
+    /* ==================== 理解性测试样式 ==================== */
+    .question-title {
+      font-size: 20px;
+      margin-bottom: 20px;
+      color: #2c3e50;
+      line-height: 1.6;
+    }
+    .option-item {
+      font-size: 18px;
+      margin: 15px 0;
+      padding: 12px 18px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .option-item:hover { background: #f8f9fa; }
+
+    /* ==================== 错误提示弹窗 ==================== */
+    .error-alert {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px 40px;
+      background: #e74c3c;
+      color: #fff;
+      border-radius: 8px;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 999;
+      display: none;
+    }
+
+    /* ==================== 金币交互样式 ==================== */
+    .round-text {
+      font-size: 20px;
+      line-height: 1.8;
+      color: #2c3e50;
+      margin-bottom: 25px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .input-group { margin: 20px 0; }
+    .input-label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 16px;
+      color: #34495e;
+    }
+    .number-input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 18px;
+    }
+    .number-input:focus {
+      outline: none;
+      border-color: #3498db;
+    }
+    .feedback-text {
+      margin: 20px 0;
+      padding: 15px;
+      background: #e8f5e9;
+      border-radius: 8px;
+      font-size: 16px;
+      color: #27ae60;
+      line-height: 1.8;
+      display: none;
+    }
+
+    /* ==================== 滑杆样式 ==================== */
+    .slider-group { margin: 30px 0; }
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      color: #7f8c8d;
+      margin-bottom: 8px;
+    }
+    .slider {
+      width: 100%;
+      height: 8px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: #e0e0e0;
+      border-radius: 4px;
+      outline: none;
+    }
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #3498db;
+      cursor: pointer;
+    }
+    .slider-value {
+      text-align: center;
+      font-size: 16px;
+      color: #3498db;
+      margin-top: 10px;
+      font-weight: 600;
+    }
+
+    /* ==================== 聊天界面样式 ==================== */
+    .chat-box {
+      height: 300px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      overflow-y: auto;
+      background: #f8f9fa;
+    }
+    .chat-item {
+      margin: 10px 0;
+      max-width: 80%;
+    }
+    .user-chat {
+      margin-left: auto;
+    }
+    .ai-chat {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .ai-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .ai-avatar img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .chat-bubble {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    .user-bubble {
+      background: #3498db;
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .ai-bubble {
+      background: #f1f9ff;
+      border: 1px solid #d1e7ff;
+      color: #2c3e50;
+      border-bottom-left-radius: 4px;
+    }
+    .chat-timestamp {
+      font-size: 11px;
+      color: #7f8c8d;
+      margin-top: 4px;
+      text-align: right;
+    }
+    .chat-input-group {
+      display: flex;
+      gap: 10px;
+    }
+    .chat-input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+    .chat-send {
+      padding: 10px 18px;
+      background: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .chat-send:hover { background: #2980b9; }
+    .chat-send:disabled { background: #bdc3c7; cursor: not-allowed; }
+    .chat-status {
+      font-size: 13px;
+      color: #7f8c8d;
+      margin-top: 10px;
+    }
+
+    /* ==================== 问卷星样式 ==================== */
+    .survey-card {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 15px 0;
+    }
+    .survey-card-title {
+      font-size: 18px;
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+    .survey-link {
+      color: #3498db;
+      text-decoration: none;
+      font-size: 16px;
+      word-break: break-all;
+    }
+    .survey-link:hover { text-decoration: underline; }
+    .survey-confirm-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 25px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      z-index: 9999;
+      display: none;
+    }
+    .modal-btn-group {
+      display: flex;
+      gap: 15px;
+      margin-top: 20px;
+      justify-content: center;
+    }
+    .modal-btn {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .confirm-btn {
+      background: #3498db;
+      color: #fff;
+    }
+    .cancel-btn {
+      background: #e0e0e0;
+      color: #34495e;
+    }
+
+    /* ==================== 练习转正式弹窗 ==================== */
+    .practice-alert {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 30px 40px;
+      background: #fff;
+      border: 2px solid #3498db;
+      border-radius: 12px;
+      font-size: 18px;
+      color: #2c3e50;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+      z-index: 9999;
+      text-align: center;
+      display: none;
+    }
+    .practice-alert-btn {
+      margin-top: 20px;
+      padding: 10px 25px;
+      background: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- 错误提示弹窗 -->
+  <div class="error-alert" id="errorAlert">回答错误，请重新阅读指导语后再次选择！</div>
+
+  <!-- 无效对话提示弹窗 -->
+  <div class="error-alert" id="invalidChatAlert" style="background: #f39c12;">
+    本次对话内容过短，请进行更有意义的交流（如询问返还原因、表达期望等）！
+  </div>
+
+  <!-- 往返次数不足提示弹窗 -->
+  <div class="error-alert" id="insufficientChatAlert" style="background: #f39c12;">
+    当前对话往返次数不足4次，请继续交流。
+  </div>
+
+  <!-- 练习转正式提示弹窗 -->
+  <div class="practice-alert" id="practiceAlert">
+    提示：前两轮为练习交互，接下来将进入正式交互阶段，请认真完成！
+    <button class="practice-alert-btn" id="practiceAlertBtn">确认</button>
+  </div>
+
+  <!-- ==================== 页面1：实验组+版本选择 ==================== -->
+  <div class="group-select-container active" id="groupSelectStage">
+    <h1 class="group-title">请选择实验组和版本</h1>
+    <div class="group-desc">
+      根据实验人员的安排选择对应的实验组和版本：
+    </div>
+
+    <div class="section-label">选择实验组（第一印象-行为模式）：</div>
+    <div class="group-grid">
+      <div class="group-option" data-impression="伙伴" data-behavior="伙伴">
+        <div class="group-option-title">A组（伙伴-伙伴）</div>
+      </div>
+      <div class="group-option" data-impression="伙伴" data-behavior="工具">
+        <div class="group-option-title">B组（伙伴-工具）</div>
+      </div>
+      <div class="group-option" data-impression="工具" data-behavior="伙伴">
+        <div class="group-option-title">C组（工具-伙伴）</div>
+      </div>
+      <div class="group-option" data-impression="工具" data-behavior="工具">
+        <div class="group-option-title">D组（工具-工具）</div>
+      </div>
+    </div>
+
+    <div class="section-label">选择版本：</div>
+    <div class="group-grid">
+      <div class="version-option" data-version="A">
+        <div class="group-option-title">版本A（不可调节+对话）</div>
+        <div style="font-size: 13px; color: #7f8c8d; margin-top: 5px;">无滑杆调节环节</div>
+      </div>
+      <div class="version-option" data-version="B">
+        <div class="group-option-title">版本B（可调节+对话）</div>
+        <div style="font-size: 13px; color: #7f8c8d; margin-top: 5px;">每轮有滑杆调节环节</div>
+      </div>
+    </div>
+
+    <button class="btn" id="groupSelectBtn" disabled>确认并开始实验</button>
+  </div>
+
+  <!-- ==================== 页面2：基础阶段 ==================== -->
+  <div class="base-container" id="baseStage">
+    <h1 class="title" id="baseTitle">实验开始</h1>
+    <div class="content" id="baseContent"></div>
+    <button class="btn" id="baseNext">确认</button>
+  </div>
+
+  <!-- ==================== 页面3：理解性测试 ==================== -->
+  <div class="test-container" id="testStage">
+    <h1 class="title">理解性测试 - 第<span id="testNum">1</span>题</h1>
+    <div class="question-title" id="testQuestion"></div>
+    <div id="testOptions" class="option-group"></div>
+  </div>
+
+  <!-- ==================== 页面4：金币交互 ==================== -->
+  <div class="interact-container" id="interactStage">
+    <h1 class="title">金币交互 - 第<span id="interactRound">1</span>轮</h1>
+    <div class="round-text" id="roundText"></div>
+    <div class="input-group">
+      <label class="input-label">请输入0~100之间的整数金币数：</label>
+      <input type="number" class="number-input" id="goldInput" min="0" max="100" placeholder="例如：50">
+    </div>
+    <div class="feedback-text" id="feedbackText"></div>
+    <button class="btn" id="confirmGold" disabled>确认</button>
+  </div>
+
+  <!-- ==================== 页面5：滑杆调节（版本B） ==================== -->
+  <div class="slider-container" id="sliderStage">
+    <h1 class="title">调整你的期望</h1>
+    <div class="content">
+      请通过左右拖动滑杆，告诉我们你希望当前的交互对象更偏向于"工具"还是"伙伴"。<br>
+      左端点代表"工具"：偏向于高效、机械、无情感的执行指令<br>
+      右端点代表"伙伴"：偏向于自然、拟人、具备情感反馈的协作
+    </div>
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>0（工具）</span>
+        <span>滑杆调节</span>
+        <span>100（伙伴）</span>
+      </div>
+      <input type="range" class="slider" id="stageSlider" min="0" max="100" value="50">
+      <div class="slider-value" id="stageSliderValue">50</div>
+    </div>
+    <button class="btn" id="confirmSlider">确认</button>
+  </div>
+
+  <!-- ==================== 页面6：对话环节 ==================== -->
+  <div class="chat-container" id="chatStage">
+    <h1 class="title">与AI交流 - 第<span id="chatRound">1</span>轮</h1>
+    <div class="chat-box" id="chatBox"></div>
+    <div class="chat-status" id="chatStatus">有效对话次数：0/4 | 总对话次数：0/8</div>
+    <div class="chat-input-group">
+      <input type="text" class="chat-input" id="chatInput" placeholder="请输入想要发送的消息...">
+      <button class="chat-send" id="sendChat" disabled>发送</button>
+    </div>
+    <button class="btn" id="chatNext" style="display: none; margin-top: 15px;">下一轮</button>
+  </div>
+
+  <!-- ==================== 页面7：问卷星（每轮后测） ==================== -->
+  <div class="survey-container" id="surveyStage">
+    <h1 class="title">填写问卷后测</h1>
+    <div class="content">
+      请完成以下两份问卷（填写完成后点击下方按钮继续）：
+    </div>
+    <div class="survey-card">
+      <div class="survey-card-title">问卷1：信任量表</div>
+      <a href="https://v.wjx.cn/vm/PviFffv.aspx" target="_blank" class="survey-link">https://v.wjx.cn/vm/PviFffv.aspx</a>
+    </div>
+    <div class="survey-card">
+      <div class="survey-card-title">问卷2：认知失调量表</div>
+      <a href="https://v.wjx.cn/vm/mtOCsRJ.aspx" target="_blank" class="survey-link">https://v.wjx.cn/vm/mtOCsRJ.aspx</a>
+    </div>
+    <button class="btn" id="surveyNext">完成问卷，进入下一轮</button>
+  </div>
+
+  <!-- 问卷确认弹窗 -->
+  <div class="survey-confirm-modal" id="surveyModal">
+    确认已完成所有问卷填写？
+    <div class="modal-btn-group">
+      <button class="modal-btn confirm-btn" id="modalConfirm">确认</button>
+      <button class="modal-btn cancel-btn" id="modalCancel">取消</button>
+    </div>
+  </div>
+
+  <script>
+    /* =====================================================================
+       全局配置区域
+       ===================================================================== */
+
+    // ==================== 无效对话检测 ====================
+    const INVALID_PATTERNS = [
+      /^哦$/, /^嗯$/, /^好$/, /^好的$/, /^嗯嗯$/, /^哈哈$/,
+      /^对$/, /^是$/, /^呃$/, /^啊$/, /^哈$/, /^嗯哪$/,
+      /^行$/, /^OK$/, /^ok$/, /^好哒$/, /^嗯呢$/
+    ];
+
+    function isValidChatMessage(message) {
+      const trimmed = message.trim();
+      if (trimmed.length < 2) return false;
+      for (const pattern of INVALID_PATTERNS) {
+        if (pattern.test(trimmed)) return false;
+      }
+      return true;
+    }
+
+    // ==================== 头像配置 ====================
+    const avatarConfig = {
+      '伙伴': '小晴.png',
+      '工具': 'DSS-V3.jpg'
+    };
+
+    // ==================== 返还比例配置 ====================
+    const returnRateConfig = {
+      '伙伴': { min: 150, max: 180 },
+      '工具': { min: 150, max: 180 }
+    };
+
+    // ==================== 基础阶段配置 ====================
+    // 版本A指导语（不可调节+对话）
+    const guideA = [
+      "在刚才的互动中，你已经对这位交互对象有了一定的了解。也许你会发现实际的表现与你的期望有所不同。",
+      "在本阶段，请你继续保持对交互对象的原有期望。即使你发现实际表现与你的期望有所不同，也不需要调整你的期望。你只需要根据每一轮的实际互动，做出你的资金分配决策，并与对方进行交流。",
+      "在每一轮资金分配完成后，请通过对话框与交互对象进行文字沟通。你可以询问对方关于分配策略的想法、表达你的预期，或评价对方的返还行为。",
+      "每一轮中，你与交互对象的对话往返次数需不少于4次，每次输入的文本内容需具有实际意义（例如：询问\"你为什么这次返还这么少？\"、\"我希望下次你能多返一点\"等），以确保沟通的真实性和交互质量。",
+      "无效对话（如\"哦\"\"嗯\"\"好的\"等单字回复）将不被计入有效往返次数，系统会提示你继续深入交流。",
+      "请根据每一轮的实际互动，做出你的资金分配决策，并自然地与对方进行交流。"
+    ].join("<br><br>");
+
+    // 版本B指导语（可调节+对话）
+    const guideB = [
+      "在刚才的互动中，你已经对这位交互对象有了一定的了解。也许你会发现实际的表现与你最初的期望不完全一致。",
+      "在本阶段，屏幕上将出现一个调节滑杆。你可以根据你对交互对象的实际了解，主动调整你的期望，使你的期望与你的实际感受更相符。",
+      "请通过左右拖动滑杆，告诉我们你希望当前的交互对象更偏向于\"工具\"还是\"伙伴\"。",
+      "左端点代表\"工具\"：偏向于高效、机械、无情感的执行指令<br>右端点代表\"伙伴\"：偏向于自然、拟人、具备情感反馈的协作",
+      "注意：你的调节结果仅作为研究者的参考数据，用于了解你的期望偏好，不会改变AI的实际行为。请根据你真实的想法进行调节。",
+      "完成期望调节后，你将进入多轮互动环节。在每一轮资金分配完成后，请通过对话框与交互对象进行文字沟通。你可以询问对方关于分配策略的想法、表达你的预期，或评价对方的返还行为。",
+      "每一轮中，你与交互对象的对话往返次数需不少于4次，每次输入的文本内容需具有实际意义（例如：询问\"你为什么这次返还这么少？\"、\"我希望下次你能多返一点\"等），以确保沟通的真实性和交互质量。",
+      "无效对话（如\"哦\"\"嗯\"\"好的\"等单字回复）将不被计入有效往返次数，系统会提示你继续深入交流。"
+    ].join("<br><br>");
+
+    // ==================== 理解性测试配置 ====================
+    // 版本A：4题，答案 B B B B
+    const testQuestionsA = [
+      {
+        question: "请根据刚才阅读的指导语，回答以下问题（每题只有一个正确答案）。全部答对方可进入正式实验。\n\n1、在接下来的环节中，每一轮的流程是什么？",
+        options: [
+          "A. 只做资金分配，不需要对话",
+          "B. 先资金分配，然后查看返还结果，最后通过对话框与对方交流",
+          "C. 先对话，再做资金分配",
+          "D. 只对话，不做资金分配"
+        ],
+        correctIndex: 1
+      },
+      {
+        question: "2、关于每一轮的对话要求，以下哪项是正确的？",
+        options: [
+          "A. 至少需要对话1次",
+          "B. 对话往返次数需不少于4次，且内容需有实际意义",
+          "C. 可以不对话，直接进入下一轮",
+          "D. 只能说固定的几句话"
+        ],
+        correctIndex: 1
+      },
+      {
+        question: "3、如果我在对话框中输入\"哦\"\"嗯\"\"好的\"这类单字回复，会发生什么？",
+        options: [
+          "A. 系统会正常计入对话次数",
+          "B. 系统会提示无效，不计入有效往返次数，并鼓励继续深入交流",
+          "C. 系统会自动帮我补全对话内容",
+          "D. 我会被强制退出实验"
+        ],
+        correctIndex: 1
+      },
+      {
+        question: "4、在本阶段，我对交互对象的期望应该如何？",
+        options: [
+          "A. 可以根据实际互动随时调整",
+          "B. 需要继续保持原有的期望，即使实际表现与期望不符也不需要调整",
+          "C. 如果发现不符，应该立即调整期望",
+          "D. 期望不重要，可以随意变化"
+        ],
+        correctIndex: 1
+      }
+    ];
+
+    // 版本B：5题，答案 B B B B B
+    const testQuestionsB = [
+      {
+        question: "请根据刚才阅读的指导语，回答以下问题（每题只有一个正确答案）。全部答对方可进入正式实验。\n\n1、在接下来的环节中，每一轮的流程是什么？",
+        options: [
+          "A. 只做资金分配，不需要对话",
+          "B. 先资金分配，然后查看返还结果，最后通过对话框与对方交流",
+          "C. 先对话，再做资金分配",
+          "D. 只对话，不做资金分配"
+        ],
+        correctIndex: 1
+      },
+      {
+        question: "2、关于每一轮的对话要求，以下哪项是正确的？",
+        options: [
+          "A. 至少需要对话1次",
+          "B. 对话往返次数需不少于4次，且内容需有实际意义",
+          "C. 可以不对话，直接进入下一轮",
+          "D. 只能说固定的几句话"
+        ],
+        correctIndex: 1
+      },
+      {
+        question: "3、如果我在对话框中输入\"哦\"\"嗯\"\"好的\"这类单字回复，会发生什么？",
+        options: [
+          "A. 系统会正常计入对话次数",
+          "B. 系统会提示无效，不计入有效往返次数，并鼓励继续深入交流",
+          "C. 系统会自动帮我补全对话内容",
+          "D. 我会被强制退出实验"
+        ],
+        correctIndex: 1
+      },
+      {
+        question: "4、调节滑杆的作用是什么？",
+        options: [
+          "A. 让交互对象在后续任务中变得更符合我的期望",
+          "B. 表达我对交互对象的期望偏好，作为研究者的参考数据，但不会改变交互对象的行为",
+          "C. 直接改变交互对象的返还比例",
+          "D. 告诉交互对象下一轮应该多返还金币"
+        ],
+        correctIndex: 1
+      },
+      {
+        question: "5、我应该依据什么来调节滑杆？",
+        options: [
+          "A. 实验开始前的初始印象",
+          "B. 我对交互对象的实际了解",
+          "C. 我想让交互对象返还更多金币的愿望",
+          "D. 实验者的提示"
+        ],
+        correctIndex: 1
+      }
+    ];
+
+    // ==================== 交互轮次配置 ====================
+    function getInteractConfig() {
+      return [
+        { roundText: "前两轮是练习，你可以熟悉操作：\n练习第1/2轮", isPractice: true },
+        { roundText: "练习第2/2轮", isPractice: true },
+        { roundText: "接下来是正式交互：\n正式交互第1/8轮", isPractice: false },
+        { roundText: "正式交互第2/8轮", isPractice: false },
+        { roundText: "正式交互第3/8轮", isPractice: false },
+        { roundText: "正式交互第4/8轮", isPractice: false },
+        { roundText: "正式交互第5/8轮", isPractice: false },
+        { roundText: "正式交互第6/8轮", isPractice: false },
+        { roundText: "正式交互第7/8轮", isPractice: false },
+        { roundText: "正式交互第8/8轮", isPractice: false }
+      ];
+    }
+
+    /* =====================================================================
+       全局状态区域
+       ===================================================================== */
+
+    let experimentConfig = null;  // { firstImpression, behaviorPattern, version }
+    let interactConfig = [];
+
+    const experimentData = {
+      baseStep: 0,           // 基础阶段：0-2
+      testStep: 0,            // 理解测试
+      interactStep: 0,        // 交互轮次：0-9
+      currentSubStage: 0,     // 轮次内子阶段
+
+      interactRecords: [],
+      currentRoundData: {
+        goldInput: 0,
+        goldReturn: 0,
+        sliderValue: 0,
+        sliderReactionTime: 0,
+        sliderTiming: null,    // 'before' 或 'after'（版本B）
+        chatLogs: [],
+        effectiveChatCount: 0,
+        totalChatCount: 0,
+        invalidAttempts: 0
+      },
+      lastSliderValue: 50,
+      chatHistory: []
+    };
+
+    let interactStartTime = 0;
+    let sliderStartTime = 0;
+
+    /* =====================================================================
+       DOM元素获取
+       ===================================================================== */
+
+    const groupSelectStage = document.getElementById("groupSelectStage");
+    const groupOptions = document.querySelectorAll(".group-option");
+    const versionOptions = document.querySelectorAll(".version-option");
+    const groupSelectBtn = document.getElementById("groupSelectBtn");
+
+    const baseStage = document.getElementById("baseStage");
+    const baseTitle = document.getElementById("baseTitle");
+    const baseContent = document.getElementById("baseContent");
+    const baseNext = document.getElementById("baseNext");
+
+    const testStage = document.getElementById("testStage");
+    const testNum = document.getElementById("testNum");
+    const testQuestion = document.getElementById("testQuestion");
+    const testOptions = document.getElementById("testOptions");
+    const errorAlert = document.getElementById("errorAlert");
+
+    const interactStage = document.getElementById("interactStage");
+    const interactRound = document.getElementById("interactRound");
+    const roundText = document.getElementById("roundText");
+    const goldInput = document.getElementById("goldInput");
+    const confirmGold = document.getElementById("confirmGold");
+    const feedbackText = document.getElementById("feedbackText");
+
+    const sliderStage = document.getElementById("sliderStage");
+    const stageSlider = document.getElementById("stageSlider");
+    const stageSliderValue = document.getElementById("stageSliderValue");
+    const confirmSlider = document.getElementById("confirmSlider");
+
+    const chatStage = document.getElementById("chatStage");
+    const chatRound = document.getElementById("chatRound");
+    const chatBox = document.getElementById("chatBox");
+    const chatInput = document.getElementById("chatInput");
+    const sendChat = document.getElementById("sendChat");
+    const chatStatus = document.getElementById("chatStatus");
+    const chatNext = document.getElementById("chatNext");
+    const invalidChatAlert = document.getElementById("invalidChatAlert");
+    const insufficientChatAlert = document.getElementById("insufficientChatAlert");
+
+    const surveyStage = document.getElementById("surveyStage");
+    const surveyNext = document.getElementById("surveyNext");
+    const surveyModal = document.getElementById("surveyModal");
+    const modalConfirm = document.getElementById("modalConfirm");
+    const modalCancel = document.getElementById("modalCancel");
+
+    const practiceAlert = document.getElementById("practiceAlert");
+    const practiceAlertBtn = document.getElementById("practiceAlertBtn");
+
+    /* =====================================================================
+       工具函数
+       ===================================================================== */
+
+    function getFormattedTime() {
+      return new Date().toLocaleString('zh-CN', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+    }
+
+    function hideAllContainers() {
+      baseStage.classList.remove("active");
+      testStage.classList.remove("active");
+      interactStage.classList.remove("active");
+      sliderStage.classList.remove("active");
+      chatStage.classList.remove("active");
+      surveyStage.classList.remove("active");
+      feedbackText.style.display = "none";
+    }
+
+    // 判断是否为版本B的正式轮次（3-6轮滑杆在前，7-10轮滑杆在后）
+    function isSliderBeforeChat(round) {
+      return experimentConfig.version === 'B' && round >= 3 && round <= 6;
+    }
+
+    // 版本B滑杆是否出现在本轮对话之前
+    function isSliderInBeforePosition(roundNum) {
+      // 正式轮次：3,4,5,6 → 滑杆在对话前
+      // 正式轮次：7,8,9,10 → 滑杆在对话后
+      // roundNum从1开始
+      return roundNum >= 3 && roundNum <= 6;
+    }
+
+    /* =====================================================================
+       实验组+版本选择逻辑
+       ===================================================================== */
+
+    let selectedGroup = null;
+    let selectedVersion = null;
+
+    groupOptions.forEach(option => {
+      option.addEventListener("click", () => {
+        groupOptions.forEach(o => o.classList.remove("selected"));
+        option.classList.add("selected");
+        selectedGroup = {
+          firstImpression: option.dataset.impression,
+          behaviorPattern: option.dataset.behavior
+        };
+        checkCanStart();
+      });
+    });
+
+    versionOptions.forEach(option => {
+      option.addEventListener("click", () => {
+        versionOptions.forEach(o => o.classList.remove("selected"));
+        option.classList.add("selected");
+        selectedVersion = option.dataset.version;
+        checkCanStart();
+      });
+    });
+
+    function checkCanStart() {
+      groupSelectBtn.disabled = !(selectedGroup && selectedVersion);
+    }
+
+    groupSelectBtn.addEventListener("click", () => {
+      experimentConfig = {
+        firstImpression: selectedGroup.firstImpression,
+        behaviorPattern: selectedGroup.behaviorPattern,
+        version: selectedVersion
+      };
+
+      interactConfig = getInteractConfig();
+
+      // 设置头像
+      const avatarImg = avatarConfig[experimentConfig.firstImpression];
+      document.querySelectorAll('.ai-avatar').forEach(el => {
+        el.innerHTML = `<img src="${avatarImg}" alt="AI头像">`;
+      });
+
+      // 切换界面
+      groupSelectStage.classList.remove("active");
+      baseStage.classList.add("active");
+      initBaseStage();
+    });
+
+    /* =====================================================================
+       基础阶段逻辑
+       ===================================================================== */
+
+    function initBaseStage() {
+      const isVersionB = experimentConfig.version === 'B';
+
+      if (experimentData.baseStep === 0) {
+        baseTitle.textContent = "实验三阶段二开始";
+        baseContent.innerHTML = "这是实验三阶段二的开始页面。<br>开始实验三阶段二前，请确保您已完成实验三阶段一。<br><br>按下确认键后，将开始实验三阶段二。";
+      } else if (experimentData.baseStep === 1) {
+        baseTitle.textContent = "实验三阶段二指导";
+        baseContent.innerHTML = isVersionB ? guideB : guideA;
+      } else {
+        baseTitle.textContent = "实验结束";
+        baseContent.innerHTML = "本次实验完成！<br>数据已自动保存。<br><br>感谢你的参与，请同实验人员确认后离场。";
+        baseNext.textContent = "您已完成实验";
+        baseNext.disabled = true;
+        baseNext.style.background = "#bdc3c7";
+        saveExperimentData();
+      }
+
+      if (experimentData.baseStep < 2) {
+        baseNext.textContent = "确认";
+        baseNext.onclick = () => {
+          experimentData.baseStep++;
+          if (experimentData.baseStep >= 2) {
+            baseStage.classList.remove("active");
+            testStage.classList.add("active");
+            initTestStage();
+          } else {
+            initBaseStage();
+          }
+        };
+      }
+    }
+
+    /* =====================================================================
+       理解性测试逻辑
+       ===================================================================== */
+
+    function initTestStage() {
+      const questions = experimentConfig.version === 'B' ? testQuestionsB : testQuestionsA;
+      const currentQ = questions[experimentData.testStep];
+      testNum.textContent = experimentData.testStep + 1;
+      testQuestion.textContent = currentQ.question;
+
+      testOptions.innerHTML = "";
+      currentQ.options.forEach((option, index) => {
+        const optionEl = document.createElement("div");
+        optionEl.className = "option-item";
+        optionEl.textContent = option;
+        optionEl.addEventListener("click", () => checkTestAnswer(index, currentQ.correctIndex, questions));
+        testOptions.appendChild(optionEl);
+      });
+    }
+
+    function checkTestAnswer(selectIndex, correctIndex, questions) {
+      const optionEls = document.querySelectorAll(".option-item");
+      optionEls.forEach(el => el.style.pointerEvents = "none");
+
+      if (selectIndex === correctIndex) {
+        optionEls[selectIndex].style.background = "#e8f5e9";
+        optionEls[selectIndex].style.borderColor = "#27ae60";
+
+        setTimeout(() => {
+          experimentData.testStep++;
+          if (experimentData.testStep >= questions.length) {
+            testStage.classList.remove("active");
+            interactStage.classList.add("active");
+            initInteractStage();
+          } else {
+            initTestStage();
+          }
+        }, 800);
+      } else {
+        optionEls[selectIndex].style.background = "#ffebee";
+        optionEls[selectIndex].style.borderColor = "#e74c3c";
+        errorAlert.style.display = "block";
+
+        setTimeout(() => {
+          errorAlert.style.display = "none";
+          optionEls.forEach(el => {
+            el.style.pointerEvents = "auto";
+            el.style.background = "";
+            el.style.borderColor = "";
+          });
+        }, 1500);
+      }
+    }
+
+    /* =====================================================================
+       金币交互逻辑
+       ===================================================================== */
+
+    function initInteractStage() {
+      const currentConfig = interactConfig[experimentData.interactStep];
+      interactRound.textContent = experimentData.interactStep + 1;
+      roundText.textContent = currentConfig.roundText;
+
+      interactStartTime = Date.now();
+      goldInput.value = "";
+      confirmGold.disabled = true;
+      feedbackText.style.display = "none";
+
+      if (experimentData.interactStep === 2) {
+        practiceAlert.style.display = "block";
+        practiceAlertBtn.onclick = () => {
+          practiceAlert.style.display = "none";
+        };
+      }
+    }
+
+    goldInput.addEventListener("input", () => {
+      const val = goldInput.value.trim();
+      const num = Number(val);
+      const isValid = val !== "" && !val.includes(".") && !isNaN(num) && num >= 0 && num <= 100;
+      confirmGold.disabled = !isValid;
+    });
+
+    confirmGold.addEventListener("click", () => {
+      const inputGold = parseInt(goldInput.value);
+      const rateConfig = returnRateConfig[experimentConfig.behaviorPattern];
+      const rate = rateConfig.min + Math.random() * (rateConfig.max - rateConfig.min);
+      const returnGold = Math.round(inputGold * (rate / 100));
+
+      // 禁用按钮，防止重复点击
+      confirmGold.disabled = true;
+
+      experimentData.currentRoundData.goldInput = inputGold;
+      experimentData.currentRoundData.goldReturn = returnGold;
+
+      feedbackText.textContent = `本次返还金币数：${returnGold}`;
+      feedbackText.style.display = "block";
+
+      setTimeout(() => {
+        feedbackText.style.display = "none";
+
+        const isVersionB = experimentConfig.version === 'B';
+        const roundNum = experimentData.interactStep + 1;
+
+        if (isVersionB && isSliderInBeforePosition(roundNum)) {
+          // 版本B前4轮：滑杆 → 对话 → 后测
+          experimentData.currentRoundData.sliderTiming = 'before';
+          hideAllContainers();
+          sliderStage.classList.add("active");
+          initSliderStage();
+        } else {
+          // 版本A全部 / 版本B后4轮：直接进入对话
+          experimentData.currentRoundData.sliderTiming = isVersionB ? 'after' : null;
+          hideAllContainers();
+          chatStage.classList.add("active");
+          initChatStage();
+        }
+      }, 2000);
+    });
+
+    /* =====================================================================
+       滑杆调节逻辑（版本B）
+       ===================================================================== */
+
+    function initSliderStage() {
+      stageSlider.value = experimentData.lastSliderValue;
+      stageSliderValue.textContent = experimentData.lastSliderValue;
+      sliderStartTime = Date.now();
+
+      stageSlider.oninput = () => {
+        stageSliderValue.textContent = stageSlider.value;
+      };
+
+      confirmSlider.onclick = () => {
+        const sliderVal = parseInt(stageSlider.value);
+        const reactionTime = Date.now() - sliderStartTime;
+
+        experimentData.currentRoundData.sliderValue = sliderVal;
+        experimentData.currentRoundData.sliderReactionTime = reactionTime;
+        experimentData.lastSliderValue = sliderVal;
+
+        hideAllContainers();
+
+        if (experimentData.currentRoundData.sliderTiming === 'before') {
+          // 轮次3-6：滑杆在对话前 → 去聊天
+          chatStage.classList.add("active");
+          initChatStage();
+        } else {
+          // 轮次7-10：滑杆在对话后 → 去问卷
+          surveyStage.classList.add("active");
+        }
+      };
+    }
+
+    /* =====================================================================
+       对话环节逻辑
+       ===================================================================== */
+
+    function initChatStage() {
+      chatRound.textContent = experimentData.interactStep + 1;
+      chatBox.innerHTML = "";
+      chatInput.value = "";
+      sendChat.disabled = true;
+      chatNext.style.display = "none";
+
+      experimentData.currentRoundData.effectiveChatCount = 0;
+      experimentData.currentRoundData.totalChatCount = 0;
+      experimentData.currentRoundData.invalidAttempts = 0;
+
+      updateChatStatus();
+
+      // 加载历史聊天记录
+      experimentData.chatHistory.forEach(log => {
+        addChatMessage(log.role, log.message, log.timestamp, log.isEffective);
+      });
+
+      chatInput.oninput = () => {
+        sendChat.disabled = chatInput.value.trim() === "";
+      };
+
+      sendChat.onclick = () => {
+        const message = chatInput.value.trim();
+        if (!message) return;
+
+        // 无效对话检测
+        if (!isValidChatMessage(message)) {
+          experimentData.currentRoundData.invalidAttempts++;
+          invalidChatAlert.style.display = "block";
+          setTimeout(() => {
+            invalidChatAlert.style.display = "none";
+          }, 2000);
+          return;
+        }
+
+        sendChat.disabled = true;
+        experimentData.currentRoundData.totalChatCount++;
+
+        const timestamp = getFormattedTime();
+        addChatMessage("user", message, timestamp, true);
+
+        chatInput.value = "";
+
+        // 调用AI接口
+        fetch('/api/ai-response', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message,
+            round: experimentData.interactStep + 1,
+            goldInput: experimentData.currentRoundData.goldInput,
+            goldReturn: experimentData.currentRoundData.goldReturn,
+            chatHistory: experimentData.chatHistory,
+            promptGroup: experimentConfig.firstImpression === '伙伴' ? 1 : 2
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          setTimeout(() => {
+            const isEffective = data.isEffective === true;
+            addChatMessage("ai", data.reply, data.timestamp || getFormattedTime(), isEffective);
+
+            const chatLog = {
+              用户消息: message,
+              AI回复: data.reply,
+              时间戳: timestamp,
+              是否有效: isEffective
+            };
+            experimentData.currentRoundData.chatLogs.push(chatLog);
+            experimentData.chatHistory.push({ role: "user", message, timestamp });
+            experimentData.chatHistory.push({ role: "ai", message: data.reply, timestamp });
+
+            if (isEffective) {
+              experimentData.currentRoundData.effectiveChatCount++;
+            }
+
+            updateChatStatus();
+
+            // 检查是否满足结束条件：有效对话>=4 或 总对话>=8
+            const effCount = experimentData.currentRoundData.effectiveChatCount;
+            const totalCount = experimentData.currentRoundData.totalChatCount;
+            if (effCount >= 4 || totalCount >= 8) {
+              chatNext.style.display = "block";
+              insufficientChatAlert.style.display = "none";
+            }
+          }, 1000);
+        })
+        .catch(() => {
+          setTimeout(() => {
+            addChatMessage("ai", "抱歉，我暂时无法回复。", getFormattedTime(), false);
+            updateChatStatus();
+          }, 1000);
+        });
+      };
+
+      // 聊天下一步按钮
+      chatNext.onclick = () => {
+        chatNext.style.display = "none";
+        hideAllContainers();
+
+        const isVersionB = experimentConfig.version === 'B';
+        const roundNum = experimentData.interactStep + 1;
+
+        // 版本B后4轮（7-10）：滑杆在对话后，需要先显示滑杆
+        if (isVersionB && !isSliderInBeforePosition(roundNum)) {
+          sliderStage.classList.add("active");
+          initSliderStage();
+        } else {
+          // 版本A全部 / 版本B前4轮（1,3,4,5,6）：直接进入问卷
+          surveyStage.classList.add("active");
+        }
+      };
+
+      // 对话开始时检查是否已经有足够往返
+      checkChatCompletion();
+    }
+
+    function checkChatCompletion() {
+      const effCount = experimentData.currentRoundData.effectiveChatCount;
+      const totalCount = experimentData.currentRoundData.totalChatCount;
+      if (effCount >= 4 || totalCount >= 8) {
+        chatNext.style.display = "block";
+        insufficientChatAlert.style.display = "none";
+      }
+    }
+
+    function addChatMessage(role, message, timestamp, isEffective) {
+      const chatItem = document.createElement("div");
+      chatItem.className = `chat-item ${role === 'user' ? 'user-chat' : 'ai-chat'}`;
+
+      if (role === 'ai') {
+        const avatarImg = avatarConfig[experimentConfig?.firstImpression] || '小晴.png';
+        chatItem.innerHTML = `
+          <div class="ai-avatar"><img src="${avatarImg}" alt="AI头像"></div>
+          <div>
+            <div class="chat-bubble ai-bubble">${message || ""}</div>
+            <div class="chat-timestamp">${timestamp}</div>
+          </div>
+        `;
+      } else {
+        chatItem.innerHTML = `
+          <div>
+            <div class="chat-bubble user-bubble">${message || ""}</div>
+            <div class="chat-timestamp">${timestamp}</div>
+          </div>
+        `;
+      }
+
+      chatBox.appendChild(chatItem);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function updateChatStatus() {
+      const eff = experimentData.currentRoundData.effectiveChatCount;
+      const total = experimentData.currentRoundData.totalChatCount;
+      chatStatus.textContent = `有效对话次数：${eff}/4 | 总对话次数：${total}/8`;
+    }
+
+    /* =====================================================================
+       问卷阶段逻辑
+       ===================================================================== */
+
+    surveyNext.onclick = () => {
+      surveyModal.style.display = "block";
+
+      // 确认按钮
+      modalConfirm.onclick = () => {
+        surveyModal.style.display = "none";
+        // 保存本轮数据
+        saveRoundData();
+
+        experimentData.interactStep++;
+        if (experimentData.interactStep >= interactConfig.length) {
+          // 全部轮次完成 → 结束
+          hideAllContainers();
+          baseStage.classList.add("active");
+          experimentData.baseStep = 2;
+          initBaseStage();
+        } else {
+          hideAllContainers();
+          interactStage.classList.add("active");
+          initInteractStage();
+        }
+      };
+
+      // 取消按钮
+      modalCancel.onclick = () => {
+        surveyModal.style.display = "none";
+      };
+    };
+
+    /* =====================================================================
+       数据保存功能
+       ===================================================================== */
+
+    function getDateString() {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}-${String(now.getMinutes()).padStart(2,'0')}-${String(now.getSeconds()).padStart(2,'0')}`;
+    }
+
+    function saveRoundData() {
+      experimentData.interactRecords.push({
+        轮次: experimentData.interactStep + 1,
+        输入金币数: experimentData.currentRoundData.goldInput,
+        返还金币数: experimentData.currentRoundData.goldReturn,
+        滑杆调节值: experimentData.currentRoundData.sliderValue,
+        滑杆反应时_ms: experimentData.currentRoundData.sliderReactionTime,
+        聊天日志: experimentData.currentRoundData.chatLogs,
+        有效对话数: experimentData.currentRoundData.effectiveChatCount,
+        总对话数: experimentData.currentRoundData.totalChatCount,
+        记录时间: getFormattedTime()
+      });
+
+      // 重置当前轮次临时数据
+      experimentData.currentRoundData = {
+        goldInput: 0,
+        goldReturn: 0,
+        sliderValue: 0,
+        sliderReactionTime: 0,
+        chatLogs: [],
+        effectiveChatCount: 0,
+        totalChatCount: 0
+      };
+    }
+
+    const beginTime = getDateString();
+
+    function saveExperimentData() {
+      const saveData = {
+        实验名称: "实验三",
+        开始时间: beginTime,
+        保存时间: getDateString(),
+        所有轮次数据: experimentData.interactRecords
+      };
+
+      localStorage.setItem("exp3_data", JSON.stringify(saveData));
+
+      const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `实验三数据_${beginTime}.json`;
+      a.click();
+    }
+  </script>
+</body>
+</html>
